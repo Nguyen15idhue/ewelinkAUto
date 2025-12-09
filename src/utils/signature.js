@@ -15,9 +15,10 @@ module.exports = {
         return crypto.createHmac('sha256', secretKey).update(stringToSign).digest('hex');
     },
 
-    // Chữ ký cho eWeLink (HMAC-SHA256 Base64)
-    signEwelink: (dataStr, secret) => {
-        return crypto.createHmac('sha256', secret).update(dataStr).digest('base64');
+        // Chữ ký eWeLink (Login payload)
+    signEwelink: (dataObj, secret) => {
+        const str = JSON.stringify(dataObj);
+        return crypto.createHmac('sha256', secret).update(str).digest('base64');
     },
 
     nonce: () => Math.random().toString(36).substring(7)

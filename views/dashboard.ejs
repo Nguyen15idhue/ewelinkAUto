@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Quản lý Trạm</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body { background: #f0f2f5; font-size: 0.85rem; }
+        .table-responsive { overflow-x: visible; } 
+        
+        /* Custom Badges */
+        .badge-cgbas-on { background-color: #198754; font-size: 0.8rem; }
+        .badge-cgbas-off { background-color: #6c757d; font-size: 0.8rem; }
+        
+        select.form-select-sm { width: 100%; min-width: 160px; font-size: 0.8rem; border-color: #ced4da; }
+        
+        /* Hiệu ứng nhấp nháy cho hàng chờ */
+        .blinking { animation: blink 1s infinite; color: #ffc107; font-weight: bold; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+        
+        /* Căn chỉnh bảng */
+        th { vertical-align: middle; white-space: nowrap; text-align: center; }
+        td { vertical-align: middle; }
+    </style>
+    
+    <!-- Tự động làm mới giao diện mỗi 30 giây để cập nhật trạng thái -->
+    <meta http-equiv="refresh" content="30">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark bg-dark sticky-top shadow-sm px-3">
+        <div class="d-flex align-items-center w-100 justify-content-between">
+            <span class="navbar-brand mb-0 h1"><i class="fas fa-satellite-dish"></i> CGBAS MANAGER</span>
+            <div class="d-flex text-white align-items-center">
+                <span class="me-3">
+                    Mục tiêu: 
+                    <span class="badge bg-<%= targetState == 'ON' ? 'success' : 'danger' %>">
+                        <%= targetState %>
+                    </span>
+                </span>
+                <button class="btn btn-sm btn-outline-light" onclick="window.location.reload()">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <!-- Stats Cards -->
+        <div class="row mb-3 g-2">
+            <div class="col-6 col-md-3">
+                <div class="card p-2 border-primary border-start-4 shadow-sm">
+                    <span class="text-muted small">Tổng trạm</span>
+                    <h4 class="mb-0 text-primary"><%= stats.total %></h4>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card p-2 border-success border-start-4 shadow-sm">
+                    <span class="text-muted small">CGBAS Online</span>
+                    <h4 class="mb-0 text-success"><%= stats.cgbas_online %></h4>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card p-2 border-info border-start-4 shadow-sm">
+                    <span class="text-muted small">eWeLink Online</span>
+                    <h4 class="mb-0 text-info"><%= stats.ewelink_online %></h4>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card p-2 border-warning border-start-4 shadow-sm">
+                    <span class="text-muted small">Hàng chờ (Queue)</span>
+                    <h4 class="mb-0 text-warning"><%= stats.pending %></h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="card shadow-sm mb-5">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 text-center table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%">Auto</th>
+                            <th style="width: 15%">Tên Trạm / Địa điểm</th>
+                            <th style="width: 10%">Trạng thái<br>CGBAS</th>
+                            <th style="width: 20%">Gán Thiết bị (eWeLink)</th>
+                            <th style="width: 12%">Trạng thái<br>eWeLink</th>
+                            <th style="width: 8%">Kênh 1</th>
+                            <th style="width: 8%">Kênh 2</th>
+                            <th style="width: 15%">Điều khiển</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% stations.forEach(st => { %>
+                        <tr>
+                            <!-- 1. Auto Status Toggle -->
+                            <td>
+                                <a href="/toggle-auto/<%= st.station_id %>" class="text-decoration-none">
+                                    <% if(st.automation_status == 1) { %>
+                                        <i class="fas fa-toggle-on fa-2x text-success" title="Tự động: BẬT"></i>
+                                    <% } else { %>
+                                        <i class="fas fa-toggle-off fa-2x text-secondary" title="Tự động: TẮT"></i>
+                                    <% } %>
+                                </a>
+                            </td>
+
+                            <!-- 2. Info -->
+                            <td class="text-start">
+                                <div class="fw-bold"><%= st.station_name %></div>
+                                <small class="text-muted d-block text-truncate" style="max-width: 220px;">
+                                    <%= st.identification_name %>
+                                </small>
+                            </td>
+
+                            <!-- 3. CGBAS Status -->
+                            <td>
+                                <% if(st.connect_status == 1) { %>
+                                    <span class="badge badge-cgbas-on">ONLINE</span>
+                                <% } else { %>
+                                    <span class="badge badge-cgbas-off">OFFLINE</span>
+                                <% } %>
+                            </td>
+
+                            <!-- 4. eWeLink Selector (AJAX) -->
+                            <td>
+                                <select class="form-select form-select-sm device-select" 
+                                        data-station-id="<%= st.station_id %>"
+                                        onchange="updateMapping(this)">
+                                    <option value="">-- Chưa gán --</option>
+                                    <% ewelinkList.forEach(dev => { %>
+                                        <option value="<%= dev.device_id %>" <%= st.ewelink_id == dev.device_id ? 'selected' : '' %>>
+                                            <%= dev.name %>
+                                        </option>
+                                    <% }) %>
+                                </select>
+                                <div class="text-start ps-1" style="height: 15px;">
+                                    <small class="status-msg" id="msg-<%= st.station_id %>"></small>
+                                </div>
+                            </td>
+
+                            <!-- 5. eWeLink Status (Logic hiển thị chuẩn) -->
+                            <td>
+                                <% if (st.ewelink_id) { %>
+                                    <% if (st.hw_online === 1) { %>
+                                        <span class="badge bg-success mb-1"><i class="fas fa-wifi"></i> ONLINE</span>
+                                        <div style="font-size: 0.75rem" class="text-muted text-start ps-3">
+                                            <i class="fas fa-signal"></i> <%= st.rssi %> dBm<br>
+                                            <i class="fas fa-bolt"></i> <%= st.voltage || 0 %> V
+                                        </div>
+                                    <% } else if (st.hw_online === 0) { %>
+                                        <span class="badge bg-danger"><i class="fas fa-unlink"></i> MẤT KẾT NỐI</span>
+                                    <% } else { %>
+                                        <!-- ID có trong bảng Station nhưng ko tìm thấy trong bảng Device -->
+                                        <span class="badge bg-warning text-dark">SAI ID / CHƯA SYNC</span>
+                                    <% } %>
+                                <% } else { %>
+                                    <span class="text-muted">-</span>
+                                <% } %>
+                            </td>
+
+                            <!-- 6. Channel 1 -->
+                            <td>
+                                <% if(st.ch1_status) { %>
+                                    <% if(st.ch1_status == 'on') { %>
+                                        <span class="badge bg-primary">ON</span>
+                                    <% } else { %>
+                                        <span class="badge bg-secondary text-dark bg-opacity-25">OFF</span>
+                                    <% } %>
+                                <% } else { %> - <% } %>
+                            </td>
+
+                            <!-- 7. Channel 2 -->
+                            <td>
+                                <% if(st.ch2_status) { %>
+                                    <% if(st.ch2_status == 'on') { %>
+                                        <span class="badge bg-primary">ON</span>
+                                    <% } else { %>
+                                        <span class="badge bg-secondary text-dark bg-opacity-25">OFF</span>
+                                    <% } %>
+                                <% } else { %> - <% } %>
+                            </td>
+
+                            <!-- 8. Actions / Queue -->
+                            <td>
+                                <% if (st.queue_status && st.queue_status !== 'COMPLETED' && st.queue_status !== 'FAILED') { %>
+                                    <div class="blinking border border-warning rounded p-1 bg-warning bg-opacity-10">
+                                        <i class="fas fa-cog fa-spin"></i> <%= st.queue_status %>: <%= st.queue_cmd %>
+                                    </div>
+                                <% } else if (st.ewelink_id) { %>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="/trigger/<%= st.ewelink_id %>/<%= st.station_name %>/ON" 
+                                           class="btn btn-outline-success fw-bold"
+                                           onclick="return confirm('Quy trình BẬT: CH1 -> Chờ -> CH2. Xác nhận?')">
+                                           BẬT
+                                        </a>
+                                        <a href="/trigger/<%= st.ewelink_id %>/<%= st.station_name %>/OFF" 
+                                           class="btn btn-outline-danger fw-bold"
+                                           onclick="return confirm('Quy trình TẮT: CH2 -> Chờ -> CH1. Xác nhận?')">
+                                           TẮT
+                                        </a>
+                                    </div>
+                                <% } else { %>
+                                    <small class="text-muted fst-italic">Cần gán thiết bị</small>
+                                <% } %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="text-center text-muted mt-3 mb-5">
+            <small>Hệ thống tự động làm mới giao diện mỗi 30 giây.</small>
+        </div>
+    </div>
+    
+    <!-- Script xử lý AJAX Update Mapping -->
+    <script>
+        function updateMapping(selectElement) {
+            const stationId = selectElement.getAttribute('data-station-id');
+            const deviceId = selectElement.value;
+            const msgSpan = document.getElementById('msg-' + stationId);
+
+            // UI Feedback
+            selectElement.disabled = true;
+            msgSpan.innerText = 'Đang lưu...';
+            msgSpan.className = 'status-msg text-warning fw-bold';
+
+            fetch('/api/update-mapping', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    station_id: stationId,
+                    ewelink_id: deviceId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    msgSpan.innerText = 'Đã lưu!';
+                    msgSpan.className = 'status-msg text-success fw-bold';
+                    
+                    // Highlight thành công
+                    selectElement.classList.add('border-success', 'text-success');
+                    setTimeout(() => {
+                        msgSpan.innerText = '';
+                        selectElement.classList.remove('border-success', 'text-success');
+                    }, 2000);
+                } else {
+                    alert('Lỗi: ' + data.message);
+                    msgSpan.innerText = 'Lỗi!';
+                    msgSpan.className = 'status-msg text-danger';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                msgSpan.innerText = 'Lỗi mạng!';
+                msgSpan.className = 'status-msg text-danger';
+            })
+            .finally(() => {
+                selectElement.disabled = false;
+            });
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
