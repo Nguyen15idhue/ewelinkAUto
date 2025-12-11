@@ -7,6 +7,7 @@ const webPool = require('./database');
 const { requireAuth } = require('./middleware');
 const logic = require('./services/station-logic');
 const queue = require('./services/queue-service');
+const reportService = require('./services/report-service');
 
 // --- AUTH ROUTER ---
 router.get('/login', (req, res) => {
@@ -229,6 +230,66 @@ router.get('/queue', requireAuth, async (req, res) => {
 });
 
 // ACTIONS: DELETE / CLEAR
+router.post('/history/delete/:id', requireAuth, async (req, res) => {
+    try {
+        await webPool.query('DELETE FROM station_logs WHERE id = ?', [req.params.id]);
+        res.json({ success: true, message: 'Đã xóa lịch sử' });
+    } catch (e) { res.json({ success: false, message: e.message }); }
+});
+
+router.post('/queue/delete/:id', requireAuth, async (req, res) => {
+    try {
+        await webPool.query('DELETE FROM command_queue WHERE id = ?', [req.params.id]);
+        res.json({ success: true, message: 'Đã xóa khỏi hàng đợi' });
+    } catch (e) { res.json({ success: false, message: e.message }); }
+});
+
+router.post('/history/clear', requireAuth, async (req, res) => {
+    try {
+        await webPool.query('DELETE FROM station_logs');
+        res.json({ success: true, message: 'Đã xóa toàn bộ lịch sử' });
+    } catch (e) { res.json({ success: false, message: e.message }); }
+});
+
+router.post('/queue/clear-completed', requireAuth, async (req, res) => {
+    try {
+        await webPool.query("DELETE FROM command_queue WHERE status IN ('COMPLETED', 'FAILED')");
+        res.json({ success: true, message: 'Đã xóa các lệnh đã hoàn thành' });
+    } catch (e) { res.json({ success: false, message: e.message }); }
+});
+// 8. REPORT PAGE
+router.get('/report', requireAuth, async (req, res) => {
+    try {
+        const today = new Date();
+        const lastWeek = new Date(today);
+        lastWeek.setDate(today.getDate() - 6);
+        const formatDate = (d) => d.toISOString().split('T')[0];
+
+        const startDate = req.query.start || formatDate(lastWeek);
+        const endDate = req.query.end || formatDate(today);
+        const stationId = req.query.station_id || '';
+
+        const [stations, summary, chartData, logs] = await Promise.all([
+            reportService.getStationsList(),
+            reportService.getSummaryStats(startDate, endDate, stationId),
+            reportService.getChartData(startDate, endDate, stationId),
+            reportService.getDetailLogs(startDate, endDate, stationId, 500)
+        ]);
+
+        res.render('report', {
+            user: req.session.user,
+            filter: { startDate, endDate, stationId },
+            stations, summary, chartData, logs
+        });
+
+    } catch (e) {
+        console.error('Report error:', e);
+        res.status(500).send('Lỗi tạo báo cáo: ' + e.message);
+    }
+});
+// ==========================================
+
+// ACTIONS
 router.post('/history/delete/:id', requireAuth, async (req, res) => {
     try {
         await webPool.query('DELETE FROM station_logs WHERE id = ?', [req.params.id]);
