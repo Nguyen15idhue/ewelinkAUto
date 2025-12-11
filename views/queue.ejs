@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<% const pageTitle = 'queue'; %>
+<%- include('partials/head') %>
+<body>
+    <%- include('partials/navbar') %>
+
+    <div class="container py-4">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">
+                <i class="fas fa-tasks text-primary me-2"></i>Hàng đợi xử lý
+                <span class="badge bg-secondary fs-6 align-middle ms-2"><%= queue ? queue.length : 0 %></span>
+            </h4>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-danger btn-sm" onclick="clearCompleted()">
+                    <i class="fas fa-broom me-1"></i> Dọn dẹp lệnh đã xong
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <% if (!queue || queue.length === 0) { %>
+                    <div class="text-center py-5">
+                        <div class="mb-3">
+                            <i class="fas fa-clipboard-check fa-4x text-success opacity-25"></i>
+                        </div>
+                        <h5 class="text-muted">Hàng đợi trống</h5>
+                        <p class="text-muted small mb-0">Hiện tại không có lệnh nào đang chờ xử lý.</p>
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light text-secondary">
+                                <tr class="text-uppercase small">
+                                    <th width="5%" class="text-center">#</th>
+                                    <th width="25%">Trạm / Thiết bị</th>
+                                    <th width="10%" class="text-center">Lệnh</th>
+                                    <th width="15%">Trạng thái</th>
+                                    <th width="20%">Thời gian</th>
+                                    <th width="10%" class="text-center">Nguồn</th>
+                                    <th width="15%" class="text-center">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% queue.forEach((item, index) => { %>
+                                <!-- Row Color Indicator -->
+                                <tr class="status-<%= item.status %> bg-opacity-10">
+                                    <td class="text-center fw-bold text-muted"><%= index + 1 %></td>
+                                    
+                                    <!-- Station Info -->
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <span class="fw-bold text-dark"><%= item.station_name %></span>
+                                            <span class="small text-muted text-truncate" style="max-width: 200px;">
+                                                <%= item.identification_name || 'Chưa có mô tả' %>
+                                            </span>
+                                            <span class="badge bg-light text-secondary border mt-1 w-auto align-self-start font-monospace">
+                                                <i class="fas fa-microchip me-1"></i><%= item.device_id %>
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Command -->
+                                    <td class="text-center">
+                                        <span class="badge rounded-pill bg-primary px-3 py-2"><%= item.command %></span>
+                                    </td>
+
+                                    <!-- Status -->
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <% if (item.status === 'PROCESSING') { %>
+                                                <div class="spinner-border spinner-border-sm text-info me-2" role="status"></div>
+                                                <span class="text-info fw-bold small">Đang chạy...</span>
+                                            <% } else if (item.status === 'PENDING') { %>
+                                                <i class="fas fa-clock text-warning me-2"></i>
+                                                <span class="text-warning fw-bold small">Đang chờ</span>
+                                            <% } else if (item.status === 'RETRY') { %>
+                                                <i class="fas fa-redo text-warning me-2"></i>
+                                                <span class="text-warning fw-bold small">Thử lại (<%= item.retry_count %>)</span>
+                                            <% } else if (item.status === 'COMPLETED') { %>
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <span class="text-success fw-bold small">Hoàn thành</span>
+                                            <% } else if (item.status === 'FAILED') { %>
+                                                <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                                                <span class="text-danger fw-bold small">Thất bại</span>
+                                            <% } else { %>
+                                                <span class="badge bg-secondary"><%= item.status %></span>
+                                            <% } %>
+                                        </div>
+                                    </td>
+
+                                    <!-- Time & Logs -->
+                                    <td class="small">
+                                        <div class="text-muted"><i class="far fa-clock me-1"></i> <%= new Date(item.created_at).toLocaleString('vi-VN') %></div>
+                                        <% if (item.status === 'FAILED' && item.error_log) { %>
+                                            <div class="text-danger mt-1 fst-italic border-top pt-1">
+                                                <i class="fas fa-bug me-1"></i> <%= item.error_log %>
+                                            </div>
+                                        <% } %>
+                                    </td>
+
+                                    <!-- Source -->
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border"><%= item.source %></span>
+                                    </td>
+
+                                    <!-- Action Buttons -->
+                                    <td class="text-center">
+                                        <% if (['COMPLETED', 'FAILED'].includes(item.status)) { %>
+                                            <!-- Đã xong: Disable nút hủy -->
+                                            <button class="btn btn-sm btn-light text-muted border" disabled title="Lệnh đã kết thúc">
+                                                <i class="fas fa-ban"></i> Đã xong
+                                            </button>
+                                        <% } else if (item.status === 'PROCESSING') { %>
+                                            <!-- Đang chạy: Disable nút hủy -->
+                                            <button class="btn btn-sm btn-light text-info border" disabled title="Đang xử lý, không thể can thiệp">
+                                                <i class="fas fa-cog fa-spin"></i> Xử lý...
+                                            </button>
+                                        <% } else { %>
+                                            <!-- Đang chờ: Cho phép hủy -->
+                                            <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="deleteItem(<%= item.id %>)" title="Hủy lệnh này ngay lập tức">
+                                                <i class="fas fa-times me-1"></i> Hủy lệnh
+                                            </button>
+                                        <% } %>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Xóa (Hủy) một lệnh cụ thể
+        function deleteItem(id) {
+            if(!confirm('Bạn có chắc chắn muốn HỦY lệnh đang chờ này không?')) return;
+            
+            const btn = event.target.closest('button');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            fetch(`/queue/delete/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    location.reload(); 
+                } else { 
+                    alert('Lỗi: ' + d.message);
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                }
+            })
+            .catch(e => {
+                alert('Lỗi kết nối!');
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            });
+        }
+
+        // Xóa toàn bộ lệnh đã xong (Completed/Failed)
+        function clearCompleted() {
+            if(!confirm('Bạn muốn xóa tất cả các lệnh ĐÃ HOÀN THÀNH hoặc THẤT BẠI khỏi danh sách?')) return;
+            
+            fetch(`/queue/clear-completed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.success) {
+                    location.reload(); 
+                } else { 
+                    alert('Lỗi: ' + d.message); 
+                }
+            });
+        }
+
+        // Tự động làm mới trang mỗi 5 giây để cập nhật trạng thái
+        // (Chỉ refresh khi người dùng không đang thao tác modal/confirm - cái này trình duyệt tự handle)
+        setTimeout(() => {
+            window.location.reload();
+        }, 5000);
+    </script>
+</body>
+</html>
