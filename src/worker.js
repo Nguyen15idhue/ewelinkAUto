@@ -3,6 +3,7 @@ const logic = require('./services/station-logic');
 const ewelink = require('./providers/ewelink-provider');
 const cgbas = require('./providers/cgbas-provider'); // Cần để verify CGBAS
 const db = require('./services/db-service');
+const config = require('../config');
 
 // CẤU HÌNH HIỆU SUẤT
 const CONCURRENCY_LIMIT = 5; 
@@ -37,8 +38,8 @@ async function executeTask(task) {
     } catch (error) {
         console.error(`❌ [Fail] Task ${task.id}: ${error.message}`);
         
-        // Nếu đã hết số lần Retry -> FAILED
-        if (task.retry_count >= 10) {
+        // Nếu đã hết số lần Retry -> FAILED (đồng bộ với config)
+        if (task.retry_count >= (config.SYSTEM.RETRY_COUNT || 5)) {
             await queue.updateStatus(task.id, 'FAILED', error.message);
 
             // --- GHI LOG THẤT BẠI ---

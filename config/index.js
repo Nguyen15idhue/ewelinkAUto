@@ -36,7 +36,8 @@ module.exports = {
     // Cấu hình Hệ thống
     SYSTEM: {
         CHECK_INTERVAL_MS: 60000, // Quét 1 phút/lần
-        RETRY_COUNT: 5,           // Số lần thử lại nếu rớt mạng
-        RETRY_DELAY_MS: 5000      // Chờ 5s giữa các lần thử
+        RETRY_COUNT: process.env.RETRY_COUNT ? parseInt(process.env.RETRY_COUNT, 10) : 5, // Số lần thử lại nếu rớt mạng
+        RETRY_DELAY_MS: process.env.RETRY_DELAY_MS ? parseInt(process.env.RETRY_DELAY_MS, 10) : 5000, // Chờ 5s giữa các lần thử (ms)
+        RETRY_INTERVAL_MIN: process.env.RETRY_INTERVAL_MIN ? parseInt(process.env.RETRY_INTERVAL_MIN, 10) : 5 // Khoảng thời gian (phút) giữa các lần retry ở mức task
     }
 };

@@ -52,10 +52,14 @@ class QueueService {
      * Lấy danh sách lệnh cần xử lý (PENDING hoặc RETRY)
      */
     async getPendingTasks(limit = 5) {
+        // Sử dụng cấu hình để đồng bộ RETRY behavior
+        const retryCountLimit = config.SYSTEM.RETRY_COUNT || 5;
+        const retryIntervalMin = config.SYSTEM.RETRY_INTERVAL_MIN || 5;
+
         const sql = `
             SELECT * FROM command_queue 
             WHERE status = 'PENDING' 
-               OR (status = 'RETRY' AND retry_count < 10 AND updated_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE))
+               OR (status = 'RETRY' AND retry_count < ${retryCountLimit} AND updated_at < DATE_SUB(NOW(), INTERVAL ${retryIntervalMin} MINUTE))
             ORDER BY created_at ASC
             LIMIT ?
         `;
