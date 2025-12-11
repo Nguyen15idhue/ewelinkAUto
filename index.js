@@ -21,7 +21,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 // Session config
 app.use(session({
-    secret: 'geotek-secret-key-2025', 
+    secret: process.env.SESSION_SECRET || 'geotek-secret-key-2025', 
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours

@@ -1,8 +1,8 @@
-const queue = require('./src/services/queue-service');
-const logic = require('./src/services/station-logic');
-const ewelink = require('./src/providers/ewelink-provider');
-const cgbas = require('./src/providers/cgbas-provider'); // Cần để verify CGBAS
-const db = require('./src/services/db-service');
+const queue = require('./services/queue-service');
+const logic = require('./services/station-logic');
+const ewelink = require('./providers/ewelink-provider');
+const cgbas = require('./providers/cgbas-provider'); // Cần để verify CGBAS
+const db = require('./services/db-service');
 
 // CẤU HÌNH HIỆU SUẤT
 const CONCURRENCY_LIMIT = 5; 

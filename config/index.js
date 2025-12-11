@@ -1,27 +1,26 @@
 module.exports = {
-    // Cấu hình CGBAS
+    // Cấu hình CGBAS (ưu tiên biến môi trường nếu có)
     CGBAS: {
-        HOST: "http://rtk.taikhoandodac.vn:8090",
-        AK: "Gbo8bcg0K6aKYIec", // Thay bằng AK thật
-        SK: "vxl6OCFDhhd3hm9W"  // Thay bằng SK thật
+        HOST: process.env.CGBAS_HOST || "http://rtk.taikhoandodac.vn:8090",
+        AK: process.env.CGBAS_AK || "Gbo8bcg0K6aKYIec",
+        SK: process.env.CGBAS_SK || "vxl6OCFDhhd3hm9W"
     },
 
     // Cấu hình eWeLink (Login trực tiếp)
     EWELINK: {
-        EMAIL: "nguyendozxc15@gmail.com",
-        PASSWORD: "thietbigeotex77c",
-        REGION: "as", // as: Asia, us: America, eu: Europe
-        // App ID/Secret mặc định của App eWeLink (có thể thay đổi tùy phiên bản)
-        APP_ID: "0tK1GmwzjeIuCxlrKganspQe7Zyu67zd", 
-        APP_SECRET: "Ih3ttfadbrNKFCRuASuUGvRwfIBSnlSz"
+        EMAIL: process.env.EWELINK_EMAIL || "nguyendozxc15@gmail.com",
+        PASSWORD: process.env.EWELINK_PASSWORD || "thietbigeotx77c",
+        REGION: process.env.EWELINK_REGION || "as",
+        APP_ID: process.env.EWELINK_APP_ID || "0tK1GmwzjeIuCxlrKganspQe7Zyu67zd",
+        APP_SECRET: process.env.EWELINK_APP_SECRET || "Ih3ttfadbrNKFCRuASuUGvRwfIBSnlSz"
     },
 
     MYSQL: {
-        HOST: 'localhost',
-        USER: 'root',
-        PASSWORD: '', // Điền pass mysql của bạn
-        DATABASE: 'cgbas_monitor',
-        PORT: 3306
+        HOST: process.env.MYSQL_HOST || 'localhost',
+        USER: process.env.MYSQL_USER || 'root',
+        PASSWORD: process.env.MYSQL_PASSWORD || '',
+        DATABASE: process.env.MYSQL_DATABASE || 'cgbas_monitor',
+        PORT: process.env.MYSQL_PORT ? parseInt(process.env.MYSQL_PORT, 10) : 3306
     },
 
     // Cấu hình Thời gian
@@ -29,7 +28,7 @@ module.exports = {
         ON_START: "05:00",
         ON_END:   "23:00",  // Sau giờ này là nghỉ, không ép Bật nữa
         
-        OFF_START: "23:20",
+        OFF_START: "23:06",
         OFF_END:   "04:30"  // Sau giờ này là nghỉ, không ép Tắt nữa
     },
 
