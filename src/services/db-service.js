@@ -158,6 +158,26 @@ class DbService {
             console.error("[Database Error] Không thể ghi log:", e.message);
         }
     }
+
+    /**
+     * Lấy trạng thái hiện tại của trạm từ DB (connect_status) và trạng thái kênh 1 của eWeLink
+     */
+    async getStationState(stationName) {
+        try {
+            const sql = `
+                SELECT s.connect_status, e.ch1_status, s.ewelink_id
+                FROM stations s
+                LEFT JOIN ewelink_devices e ON s.ewelink_id = e.device_id
+                WHERE s.station_name = ?
+                LIMIT 1
+            `;
+            const [rows] = await pool.query(sql, [stationName]);
+            return rows && rows[0] ? rows[0] : null;
+        } catch (e) {
+            console.error('[Database Error] getStationState:', e.message);
+            return null;
+        }
+    }
 } // Kết thúc Class
 
 module.exports = new DbService();

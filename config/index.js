@@ -35,7 +35,9 @@ module.exports = {
 
     // Cấu hình Hệ thống
     SYSTEM: {
-        CHECK_INTERVAL_MS: 60000, // Quét 1 phút/lần
+        //CHECK_INTERVAL_MS: 30000, // Quét 30s/lần (default changed to 30s)
+        CGBAS_INTERVAL_MS: process.env.CGBAS_INTERVAL_MS ? parseInt(process.env.CGBAS_INTERVAL_MS, 10) : 30000, // CGBAS sync interval
+        EWELINK_INTERVAL_MS: process.env.EWELINK_INTERVAL_MS ? parseInt(process.env.EWELINK_INTERVAL_MS, 10) : 60000, // eWeLink sync interval
         RETRY_COUNT: process.env.RETRY_COUNT ? parseInt(process.env.RETRY_COUNT, 10) : 5, // Số lần thử lại nếu rớt mạng
         RETRY_DELAY_MS: process.env.RETRY_DELAY_MS ? parseInt(process.env.RETRY_DELAY_MS, 10) : 5000, // Chờ 5s giữa các lần thử (ms)
         RETRY_INTERVAL_MIN: process.env.RETRY_INTERVAL_MIN ? parseInt(process.env.RETRY_INTERVAL_MIN, 10) : 5 // Khoảng thời gian (phút) giữa các lần retry ở mức task

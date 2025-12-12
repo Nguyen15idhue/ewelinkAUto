@@ -1,4 +1,6 @@
 // File: index.js
+// Initialize logger as early as possible so all console output is captured
+require('./src/logger');
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser'); 
@@ -31,7 +33,7 @@ app.use(session({
 app.use('/', appRoutes);
 
 // --- KHỞI ĐỘNG ---
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log("------------------------------------------------");
     console.log("✅ HỆ THỐNG ĐÃ KHỞI ĐỘNG");

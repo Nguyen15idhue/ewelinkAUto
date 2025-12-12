@@ -17,6 +17,31 @@ async function executeTask(task) {
     await queue.updateStatus(task.id, 'PROCESSING');
 
     try {
+        // If this is a retry attempt, verify current DB state first to avoid unnecessary work
+        if (task.status === 'RETRY' || (task.retry_count && task.retry_count > 0)) {
+            try {
+                const state = await db.getStationState(task.station_name);
+                if (state) {
+                    const cgbasOnline = (state.connect_status == 1);
+                    const ch1 = state.ch1_status || 'unknown';
+                    // If desired state already achieved in DB, mark as COMPLETED
+                    if (task.command_type === 'ON' && cgbasOnline && ch1 === 'on') {
+                        await queue.updateStatus(task.id, 'COMPLETED', 'Đã ở trạng thái ON trong DB - bỏ qua retry');
+                        await db.addLog(task.station_name, task.device_id, task.command_type, task.trigger_source || 'AUTO', 'SUCCESS', 'Bỏ qua retry: đã ON');
+                        console.log(`ℹ️ [Skip Retry] Task ${task.id}: station already ON according to DB.`);
+                        return;
+                    }
+                    if (task.command_type === 'OFF' && !cgbasOnline && ch1 === 'off') {
+                        await queue.updateStatus(task.id, 'COMPLETED', 'Đã ở trạng thái OFF trong DB - bỏ qua retry');
+                        await db.addLog(task.station_name, task.device_id, task.command_type, task.trigger_source || 'AUTO', 'SUCCESS', 'Bỏ qua retry: đã OFF');
+                        console.log(`ℹ️ [Skip Retry] Task ${task.id}: station already OFF according to DB.`);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('[Retry Check] Không thể kiểm tra trạng thái DB:', e.message);
+            }
+        }
         // A. Check Online (Quan trọng: Check tại thời điểm thực thi)
         const isOnline = await ewelink.isDeviceOnline(task.device_id);
         if (!isOnline) {
@@ -43,7 +68,7 @@ async function executeTask(task) {
             await queue.updateStatus(task.id, 'FAILED', error.message);
 
             // --- GHI LOG THẤT BẠI ---
-            const db = require('./src/services/db-service');
+            
             await db.addLog(
                 task.station_name, 
                 task.device_id, 
@@ -116,7 +141,7 @@ async function verifyTask(task) {
             console.log(`✅ [Verified] Task ${task.id}: ${msg}`);
 
             // --- GHI LOG VÀO HISTORY ---
-            const db = require('./src/services/db-service'); // Import ở đầu file nếu chưa có
+             // Import ở đầu file nếu chưa có
             await db.addLog(
                 task.station_name, 
                 task.device_id, 
@@ -177,3 +202,4 @@ function start() {
 
 // Export hàm start để index.js gọi
 module.exports = { start };
+

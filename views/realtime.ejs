@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<% const pageTitle = 'realtime'; %>
+<%- include('partials/head') %>
+
+<style>
+    .terminal-table td {
+        font-family: Consolas, Menlo, Monaco, monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .log-line {
+        padding: 4px 8px;
+    }
+</style>
+
+<body>
+<%- include('partials/navbar') %>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">
+            <i class="fas fa-terminal me-2 text-primary"></i>
+            Realtime Logs (Terminal)
+        </h4>
+
+        <div class="d-flex gap-2 align-items-center">
+            <span class="small text-muted">Realtime</span>
+            <button class="btn btn-sm btn-outline-secondary" id="pauseBtn" onclick="togglePause()">Tạm dừng</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="clearLogs()">Xóa</button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height:70vh; overflow:auto;">
+                <table class="table table-sm table-hover mb-0 terminal-table">
+                    <tbody id="logBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let paused = false;
+    const MAX_LINES = 400;
+    const tbody = document.getElementById('logBody');
+    let source = null;
+
+    function togglePause() {
+        paused = !paused;
+        document.getElementById('pauseBtn').innerText = paused ? 'Tiếp tục' : 'Tạm dừng';
+    }
+
+    function clearLogs() {
+        tbody.innerHTML = '';
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>"']/g, m => ({
+            '&':'&amp;',
+            '<':'&lt;',
+            '>':'&gt;',
+            '"':'&quot;',
+            "'":'&#39;'
+        })[m]);
+    }
+
+    function getColorClass(line) {
+        if (line.includes('[ERROR]')) return 'text-danger';
+        if (line.includes('[WARN]')) return 'text-warning';
+        if (line.includes('[INFO]')) return 'text-info';
+        if (line.includes('✅')) return 'text-success';
+        if (line.includes('❌')) return 'text-danger';
+        if (line.includes('⚠️')) return 'text-warning';
+        return '';
+    }
+
+    function appendLine(line, prepend = true) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="log-line ${getColorClass(line)}">
+                ${escapeHtml(line)}
+            </td>
+        `;
+
+        if (prepend) tbody.prepend(tr);
+        else tbody.appendChild(tr);
+
+        while (tbody.children.length > MAX_LINES) {
+            tbody.removeChild(tbody.lastChild);
+        }
+    }
+
+    // ===== 1. LOAD SNAPSHOT (tail -n) =====
+    async function loadSnapshot() {
+        try {
+            const res = await fetch('/api/realtime-snapshot?limit=200');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.lines)) {
+                tbody.innerHTML = '';
+                data.lines.forEach(line => appendLine(line, false));
+            }
+        } catch (e) {
+            appendLine('[SYSTEM] ❌ Không tải được snapshot log');
+        }
+    }
+
+    // ===== 2. START SSE (tail -f) =====
+    function startRealtime() {
+        if (source) source.close();
+
+        source = new EventSource('/api/realtime-stream');
+
+        source.onmessage = (event) => {
+            if (paused) return;
+            const { line } = JSON.parse(event.data);
+            appendLine(line, true);
+        };
+
+        source.onerror = () => {
+            appendLine('[SYSTEM] ❌ Mất kết nối realtime log');
+            source.close();
+        };
+    }
+
+    // ===== INIT =====
+    loadSnapshot().then(startRealtime);
+</script>
+
+</body>
+</html>

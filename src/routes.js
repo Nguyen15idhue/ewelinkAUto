@@ -8,7 +8,7 @@ const { requireAuth } = require('./middleware');
 const logic = require('./services/station-logic');
 const queue = require('./services/queue-service');
 const reportService = require('./services/report-service');
-
+const { getLastLines, streamLogs } = require('./services/realtime-log-service');
 // --- AUTH ROUTER ---
 router.get('/login', (req, res) => {
     res.render('login', { error: null });
@@ -274,17 +274,31 @@ router.get('/report', requireAuth, async (req, res) => {
         const endDate = req.query.end || formatDate(today);
         const stationId = req.query.station_id || '';
 
-        const [stations, summary, chartData, logs] = await Promise.all([
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        let perPage = req.query.perPage || '500';
+        if (perPage !== 'all') perPage = Number(perPage) || 500;
+
+        const [stations, summary, chartData] = await Promise.all([
             reportService.getStationsList(),
             reportService.getSummaryStats(startDate, endDate, stationId),
-            reportService.getChartData(startDate, endDate, stationId),
-            reportService.getDetailLogs(startDate, endDate, stationId, 500)
+            reportService.getChartData(startDate, endDate, stationId)
         ]);
+
+        const detail = await reportService.getDetailLogs(startDate, endDate, stationId, page, perPage);
+        const logs = detail.rows;
+        const totalLogs = detail.total;
+        const totalPages = perPage === 'all' ? 1 : Math.max(1, Math.ceil(totalLogs / Number(perPage)));
+
+        // Toggle ranking (top and bottom)
+        const topToggled = await reportService.getToggleRanking(startDate, endDate, 10, 'DESC');
+        const leastToggled = await reportService.getToggleRanking(startDate, endDate, 10, 'ASC');
 
         res.render('report', {
             user: req.session.user,
-            filter: { startDate, endDate, stationId },
-            stations, summary, chartData, logs
+            filter: { startDate, endDate, stationId, page, perPage },
+            stations, summary, chartData, logs,
+            pagination: { page, perPage, totalLogs, totalPages },
+            topToggled, leastToggled
         });
 
     } catch (e) {
@@ -342,5 +356,24 @@ router.get('/cancel-all-queue', requireAuth, async (req, res) => {
         res.status(500).json({ success: false, message: e.message });
     }
 });
+router.get('/api/realtime-stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
+    streamLogs(res);
+});
+router.get('/realtime', requireAuth, (req, res) => {
+    res.render('realtime');
+});
+router.get('/api/realtime-snapshot', (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 200, 1000);
+    const lines = getLastLines(limit);
+    res.json({ success: true, lines });
+});
 module.exports = router;
+
+
+
+
+
