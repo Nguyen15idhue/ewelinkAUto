@@ -67,6 +67,9 @@
                     <button class="btn btn-outline-primary btn-sm" onclick="toggleGlobalAuto()">
                         <i class="fas fa-robot"></i> Auto Toàn cục
                     </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="disableGlobalAuto()">
+                        <i class="fas fa-power-off"></i> Tắt Auto Toàn cục
+                    </button>
                     <button class="btn btn-outline-warning btn-sm" onclick="triggerAll()">
                         <i class="fas fa-bolt"></i> Kích hoạt tất cả
                     </button>
@@ -212,8 +215,137 @@
                 setTimeout(() => msg.innerHTML = '', 2000);
             });
         }
-        function toggleGlobalAuto() { if(confirm('Đổi chế độ Auto toàn cục?')) location.href='/toggle-global-auto'; }
+        // Toast helper (Bootstrap)
+                function showToast(message, variant = 'primary') {
+                        const id = 'toast-' + Date.now();
+                        // Ensure there's a dedicated toast container below navbar
+                        let container = document.getElementById('toast-container-fixed');
+                        if (!container) {
+                                container = document.createElement('div');
+                                container.id = 'toast-container-fixed';
+                                container.style.position = 'fixed';
+                                container.style.top = '72px';
+                                container.style.right = '16px';
+                                container.style.zIndex = '20000';
+                                document.body.appendChild(container);
+                        }
+                        const wrapper = document.createElement('div');
+                        wrapper.innerHTML = `
+                        <div id="${id}" class="toast align-items-center text-bg-${variant} border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="d-flex">
+                                <div class="toast-body">${message}</div>
+                                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                        </div>`;
+                        container.appendChild(wrapper);
+                        const toastEl = document.getElementById(id);
+                        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                        toast.show();
+                        toastEl.addEventListener('hidden.bs.toast', () => wrapper.remove());
+                }
+
+        async function disableGlobalAuto() {
+            if (!await confirmAction('Tắt chế độ Auto toàn cục?')) return;
+            try {
+                const res = await fetch('/disable-global-auto', { headers: { 'Accept': 'application/json' } });
+                const json = await res.json();
+                if (json && json.success) {
+                    showToast(json.message || 'Đã tắt Auto toàn cục', 'success');
+                    await refreshDashboard();
+                } else {
+                    showToast(json.message || 'Lỗi', 'danger');
+                }
+            } catch (e) {
+                showToast('Lỗi kết nối: ' + e.message, 'danger');
+            }
+        }
+
+        async function toggleGlobalAuto() {
+            if (!await confirmAction('Đổi chế độ Auto toàn cục?')) return;
+            try {
+                const res = await fetch('/toggle-global-auto', { headers: { 'Accept': 'application/json' } });
+                const json = await res.json();
+                if (json && json.success) {
+                    showToast(json.message || 'Đã đổi Auto toàn cục', 'success');
+                    await refreshDashboard();
+                } else {
+                    showToast(json.message || 'Lỗi', 'danger');
+                }
+            } catch (e) {
+                showToast('Lỗi kết nối: ' + e.message, 'danger');
+            }
+        }
         function triggerAll() { if(confirm('Kích hoạt tất cả?')) location.href='/trigger-all'; }
+
+        // Reload the main container via AJAX to update statuses without full navigation
+        async function refreshDashboard() {
+            try {
+                const url = window.location.pathname + window.location.search + (window.location.search ? '&' : '?') + '_ts=' + Date.now();
+                const resp = await fetch(url, { cache: 'no-store' });
+                const html = await resp.text();
+                // parse and replace container-fluid
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newContainer = doc.querySelector('.container-fluid');
+                const cur = document.querySelector('.container-fluid');
+                if (!newContainer) return location.reload();
+                if (!cur) return location.reload();
+                // If content identical, do full reload to ensure consistency
+                if (cur.innerHTML.trim() === newContainer.innerHTML.trim()) {
+                    return location.reload();
+                }
+                cur.replaceWith(newContainer);
+                // reset user activity timer so auto-refresh doesn't trigger immediately
+                time = new Date().getTime();
+            } catch (e) {
+                console.error('Refresh failed', e);
+            }
+        }
+
+                // Generic confirm modal using Bootstrap
+                function ensureConfirmModal() {
+                        if (document.getElementById('confirm-modal')) return;
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                        <div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Xác nhận</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body"><p id="confirm-modal-msg"></p></div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                        <button type="button" class="btn btn-primary" id="confirm-modal-ok">Đồng ý</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                        document.body.appendChild(div);
+                }
+
+                function confirmAction(message) {
+                        return new Promise((resolve) => {
+                                ensureConfirmModal();
+                                const modalEl = document.getElementById('confirm-modal');
+                                const msgEl = document.getElementById('confirm-modal-msg');
+                                const okBtn = document.getElementById('confirm-modal-ok');
+                                msgEl.textContent = message;
+                                const bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+                                const onOk = () => {
+                                        okBtn.removeEventListener('click', onOk);
+                                        bsModal.hide();
+                                        resolve(true);
+                                };
+                                modalEl.addEventListener('hidden.bs.modal', function handler() {
+                                        modalEl.removeEventListener('hidden.bs.modal', handler);
+                                        // if closed without clicking OK, resolve false
+                                        resolve(false);
+                                });
+                                okBtn.addEventListener('click', onOk);
+                                bsModal.show();
+                        });
+                }
     </script>
 </body>
 </html>

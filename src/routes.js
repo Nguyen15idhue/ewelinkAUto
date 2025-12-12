@@ -140,8 +140,13 @@ router.get('/trigger/:deviceId/:name/:cmd', requireAuth, async (req, res) => {
 router.get('/toggle-global-auto', requireAuth, async (req, res) => {
     try {
         await webPool.query(`UPDATE stations SET automation_status = 1 - automation_status`);
+        // If the client expects JSON (AJAX), return JSON. Otherwise redirect.
+        const wantsJson = req.xhr || (req.headers.accept && req.headers.accept.indexOf('application/json') !== -1);
+        if (wantsJson) return res.json({ success: true, message: 'Đã đổi chế độ Auto toàn cục.' });
         res.redirect('/');
     } catch (e) {
+        const wantsJson = req.xhr || (req.headers.accept && req.headers.accept.indexOf('application/json') !== -1);
+        if (wantsJson) return res.status(500).json({ success: false, message: e.message });
         res.status(500).send(e.message);
     }
 });
@@ -316,6 +321,26 @@ router.post('/queue/clear-completed', requireAuth, async (req, res) => {
         await webPool.query("DELETE FROM command_queue WHERE status IN ('COMPLETED', 'FAILED')");
         res.json({ success: true, message: 'Đã xóa các lệnh đã hoàn thành' });
     } catch (e) { res.json({ success: false, message: e.message }); }
+});
+
+// 8. API: TẮT AUTO TOÀN CỤC
+router.get('/disable-global-auto', requireAuth, async (req, res) => {
+    try {
+        await webPool.query(`UPDATE stations SET automation_status = 0`);
+        res.json({ success: true, message: "Đã tắt chế độ tự động toàn cục." });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// 9. API: HỦY TẤT CẢ HÀNG ĐỢI
+router.get('/cancel-all-queue', requireAuth, async (req, res) => {
+    try {
+        await webPool.query(`UPDATE command_queue SET status = 'CANCELLED' WHERE status IN ('PENDING', 'PROCESSING', 'RETRY', 'VERIFYING')`);
+        res.json({ success: true, message: "Đã hủy tất cả các hàng đợi." });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
 });
 
 module.exports = router;

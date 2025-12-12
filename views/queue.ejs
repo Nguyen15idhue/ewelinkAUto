@@ -16,6 +16,9 @@
                 <button class="btn btn-outline-danger btn-sm" onclick="clearCompleted()">
                     <i class="fas fa-broom me-1"></i> Dọn dẹp lệnh đã xong
                 </button>
+                <button class="btn btn-outline-warning btn-sm" onclick="cancelAllQueue()">
+                    <i class="fas fa-ban me-1"></i> Hủy tất cả hàng đợi
+                </button>
             </div>
         </div>
 
@@ -139,59 +142,161 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Xóa (Hủy) một lệnh cụ thể
-        function deleteItem(id) {
-            if(!confirm('Bạn có chắc chắn muốn HỦY lệnh đang chờ này không?')) return;
-            
+        // Toast helper (Bootstrap)
+                function showToast(message, variant = 'primary') {
+                        const id = 'toast-' + Date.now();
+                        let container = document.getElementById('toast-container-fixed');
+                        if (!container) {
+                                container = document.createElement('div');
+                                container.id = 'toast-container-fixed';
+                                container.style.position = 'fixed';
+                                container.style.top = '72px';
+                                container.style.right = '16px';
+                                container.style.zIndex = '20000';
+                                document.body.appendChild(container);
+                        }
+                        const wrapper = document.createElement('div');
+                        wrapper.innerHTML = `
+                        <div id="${id}" class="toast align-items-center text-bg-${variant} border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="d-flex">
+                                <div class="toast-body">${message}</div>
+                                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                        </div>`;
+                        container.appendChild(wrapper);
+                        const toastEl = document.getElementById(id);
+                        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                        toast.show();
+                        toastEl.addEventListener('hidden.bs.toast', () => wrapper.remove());
+                }
+
+        // Xóa (Hủy) một lệnh cụ thể (AJAX + toast + partial refresh)
+        async function deleteItem(id) {
+            if(!await confirmAction('Bạn có chắc chắn muốn HỦY lệnh đang chờ này không?')) return;
             const btn = event.target.closest('button');
             const originalContent = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.disabled = true;
 
-            fetch(`/queue/delete/${id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(r => r.json())
-            .then(d => { 
-                if(d.success) {
-                    location.reload(); 
-                } else { 
-                    alert('Lỗi: ' + d.message);
+            try {
+                const r = await fetch(`/queue/delete/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                const d = await r.json();
+                if (d.success) {
+                    showToast('Đã hủy lệnh', 'success');
+                    await refreshQueue();
+                } else {
+                    showToast('Lỗi: ' + d.message, 'danger');
                     btn.innerHTML = originalContent;
                     btn.disabled = false;
                 }
-            })
-            .catch(e => {
-                alert('Lỗi kết nối!');
+            } catch (e) {
+                showToast('Lỗi kết nối!', 'danger');
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
-            });
+            }
         }
 
         // Xóa toàn bộ lệnh đã xong (Completed/Failed)
-        function clearCompleted() {
-            if(!confirm('Bạn muốn xóa tất cả các lệnh ĐÃ HOÀN THÀNH hoặc THẤT BẠI khỏi danh sách?')) return;
-            
-            fetch(`/queue/clear-completed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(r => r.json())
-            .then(d => { 
-                if(d.success) {
-                    location.reload(); 
-                } else { 
-                    alert('Lỗi: ' + d.message); 
+        async function clearCompleted() {
+            if(!await confirmAction('Bạn muốn xóa tất cả các lệnh ĐÃ HOÀN THÀNH hoặc THẤT BẠI khỏi danh sách?')) return;
+            try {
+                const r = await fetch(`/queue/clear-completed`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                const d = await r.json();
+                if (d.success) {
+                    showToast('Đã dọn dẹp', 'success');
+                    await refreshQueue();
+                } else {
+                    showToast('Lỗi: ' + d.message, 'danger');
                 }
-            });
+            } catch (e) {
+                showToast('Lỗi kết nối: ' + e.message, 'danger');
+            }
         }
 
-        // Tự động làm mới trang mỗi 5 giây để cập nhật trạng thái
-        // (Chỉ refresh khi người dùng không đang thao tác modal/confirm - cái này trình duyệt tự handle)
-        setTimeout(() => {
-            window.location.reload();
+        // Hủy tất cả hàng đợi (gọi route mới /cancel-all-queue)
+        async function cancelAllQueue() {
+            if(!await confirmAction('Bạn có chắc chắn muốn HỦY TẤT CẢ các lệnh đang chờ này không?')) return;
+            try {
+                const r = await fetch('/cancel-all-queue');
+                const d = await r.json();
+                if (d.success) {
+                    showToast(d.message || 'Đã hủy tất cả', 'success');
+                    await refreshQueue();
+                } else {
+                    showToast('Lỗi: ' + d.message, 'danger');
+                }
+            } catch (e) {
+                showToast('Lỗi kết nối: ' + e.message, 'danger');
+            }
+        }
+
+        // Tự động làm mới nội dung .container của trang queue (partial reload)
+        async function refreshQueue() {
+            try {
+                const url = window.location.pathname + window.location.search + (window.location.search ? '&' : '?') + '_ts=' + Date.now();
+                const resp = await fetch(url, { cache: 'no-store' });
+                const html = await resp.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newContainer = doc.querySelector('.container');
+                const cur = document.querySelector('.container');
+                if (!newContainer || !cur) return location.reload();
+                if (cur.innerHTML.trim() === newContainer.innerHTML.trim()) {
+                    return location.reload();
+                }
+                cur.replaceWith(newContainer);
+            } catch (e) {
+                console.error('Refresh failed', e);
+            }
+        }
+
+        // Optional: scheduled refresh every 5s (keeps existing behaviour but using AJAX partial)
+        setInterval(() => {
+            refreshQueue();
         }, 5000);
+                // Generic confirm modal helper (reused from dashboard)
+                function ensureConfirmModal() {
+                        if (document.getElementById('confirm-modal')) return;
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                        <div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Xác nhận</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body"><p id="confirm-modal-msg"></p></div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                        <button type="button" class="btn btn-primary" id="confirm-modal-ok">Đồng ý</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                        document.body.appendChild(div);
+                }
+
+                function confirmAction(message) {
+                        return new Promise((resolve) => {
+                                ensureConfirmModal();
+                                const modalEl = document.getElementById('confirm-modal');
+                                const msgEl = document.getElementById('confirm-modal-msg');
+                                const okBtn = document.getElementById('confirm-modal-ok');
+                                msgEl.textContent = message;
+                                const bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+                                const onOk = () => {
+                                        okBtn.removeEventListener('click', onOk);
+                                        bsModal.hide();
+                                        resolve(true);
+                                };
+                                modalEl.addEventListener('hidden.bs.modal', function handler() {
+                                        modalEl.removeEventListener('hidden.bs.modal', handler);
+                                        resolve(false);
+                                });
+                                okBtn.addEventListener('click', onOk);
+                                bsModal.show();
+                        });
+                }
     </script>
 </body>
 </html>
