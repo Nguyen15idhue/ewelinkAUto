@@ -13,6 +13,11 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
+// Khoảng thời gian (phút) không auto-requeue cùng device nếu đã vừa COMPLETED
+const AUTO_REQUEUE_MINUTES = (config && config.SYSTEM && config.SYSTEM.AUTO_REQUEUE_MINUTES)
+    ? parseInt(config.SYSTEM.AUTO_REQUEUE_MINUTES, 10)
+    : 30;
+
 class QueueService {
     
     /**
@@ -37,6 +42,16 @@ class QueueService {
                 // Nếu lệnh ngược lại -> Hủy lệnh cũ
                 await pool.query(`UPDATE command_queue SET status = 'CANCELLED' WHERE id = ?`, [existing.id]);
                 console.log(`[Queue] Hủy lệnh cũ (ID: ${existing.id}) để thay lệnh mới.`);
+            }
+        }
+
+        // Nếu là auto requeue, không thêm lệnh mới nếu đã có COMPLETED gần đây
+        if (source === 'AUTO') {
+            const sqlRecent = `SELECT id FROM command_queue WHERE device_id = ? AND status = 'COMPLETED' AND trigger_source = 'AUTO' AND updated_at > DATE_SUB(NOW(), INTERVAL ${AUTO_REQUEUE_MINUTES} MINUTE) LIMIT 1`;
+            const [recent] = await pool.query(sqlRecent, [deviceId]);
+            if (recent.length > 0) {
+                console.log(`[Queue] Skip AUTO enqueue for ${stationName} (${deviceId}) - recent COMPLETED within ${AUTO_REQUEUE_MINUTES} minutes.`);
+                return;
             }
         }
 

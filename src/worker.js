@@ -6,7 +6,7 @@ const db = require('./services/db-service');
 const config = require('../config');
 
 // CẤU HÌNH HIỆU SUẤT
-const CONCURRENCY_LIMIT = 5; 
+const CONCURRENCY_LIMIT = 2; 
 const SCAN_INTERVAL = 5000; 
 
 // =========================================================

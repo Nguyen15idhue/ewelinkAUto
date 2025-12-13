@@ -41,5 +41,8 @@ module.exports = {
         RETRY_COUNT: process.env.RETRY_COUNT ? parseInt(process.env.RETRY_COUNT, 10) : 5, // Số lần thử lại nếu rớt mạng
         RETRY_DELAY_MS: process.env.RETRY_DELAY_MS ? parseInt(process.env.RETRY_DELAY_MS, 10) : 5000, // Chờ 5s giữa các lần thử (ms)
         RETRY_INTERVAL_MIN: process.env.RETRY_INTERVAL_MIN ? parseInt(process.env.RETRY_INTERVAL_MIN, 10) : 5 // Khoảng thời gian (phút) giữa các lần retry ở mức task
+        ,
+        AUTO_REQUEUE_MINUTES: process.env.AUTO_REQUEUE_MINUTES ? parseInt(process.env.AUTO_REQUEUE_MINUTES, 10) : 30, // Khoảng thời gian (phút) không auto-requeue cùng device nếu đã vừa COMPLETED
+        EWELINK_CACHE_TTL_MS: process.env.EWELINK_CACHE_TTL_MS ? parseInt(process.env.EWELINK_CACHE_TTL_MS, 10) : 60000 // Thời gian TTL cache eWeLink devices (ms)
     }
 };

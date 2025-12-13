@@ -68,9 +68,14 @@ async function mainLoop() {
             // --- KỊCH BẢN BẬT (ON) ---
             else if (target === 'ON') {
                 if (st.connect_status != 1) {
-                    let msg = (st.ch1_status === 'off') ? "BẬT (Cold Start)" : "KÍCH NGUỒN (Wake Up)";
-                    log(`⚡ [AUTO] ${msg} ${st.station_name} -> Queue`);
-                    await queue.addToQueue(st.station_name, st.ewelink_id, 'ON', 'AUTO');
+                    // Nếu kênh 1 đã ON rồi thì không cần enqueue thêm
+                    if (st.ch1_status === 'on') {
+                        log(`⚡ [AUTO] Skip BẬT ${st.station_name} -> CH1 already 'on'`);
+                    } else {
+                        let msg = (st.ch1_status === 'off') ? "BẬT (Cold Start)" : "KÍCH NGUỒN (Wake Up)";
+                        log(`⚡ [AUTO] ${msg} ${st.station_name} -> Queue`);
+                        await queue.addToQueue(st.station_name, st.ewelink_id, 'ON', 'AUTO');
+                    }
                 }
             }
         }

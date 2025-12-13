@@ -1,4 +1,3 @@
-
 version: '3.8'
 
 services:
@@ -11,7 +10,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      TZ: UTC
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       - ewelink_db_data:/var/lib/mysql
       - ./migrations/cgbas_monitor.sql:/docker-entrypoint-initdb.d/cgbas_monitor.sql:ro
@@ -37,6 +36,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_PORT: 3306
       SESSION_SECRET: ${SESSION_SECRET}
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "3003:3000"
 

@@ -10,8 +10,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
  * Trả về TRUE nếu thành công, FALSE nếu thất bại
  */
 async function strictSwitch(deviceId, channel, targetState) {
-    let retries = 3; 
-    console.log(`      [Strict] Thực hiện: CH${channel} -> ${targetState.toUpperCase()}`);
+    let retries = 2; 
+    console.log(`      [Strict] Thực hiện: CH${channel} -> ${targetState.toUpperCase()} (retries=${retries})`);
 
     while (retries > 0) {
         // 1. Gửi lệnh

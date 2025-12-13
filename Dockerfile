@@ -1,9 +1,15 @@
 FROM node:18-alpine
 
+# 👉 Cài timezone data
+RUN apk add --no-cache tzdata
+
+# 👉 Set múi giờ cho container
+ENV TZ=Asia/Ho_Chi_Minh
+
 WORKDIR /usr/src/app
 
 # Install dependencies
-COPY package.json .
+COPY package.json ./
 RUN npm install --production
 
 # Copy source
